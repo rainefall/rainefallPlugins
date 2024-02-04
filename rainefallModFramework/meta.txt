@@ -1,0 +1,4 @@
+Name         = rainefallModFramework
+Version      = 1.0
+Essentials   = 21
+Credits      = rainefall
