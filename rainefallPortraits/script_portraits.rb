@@ -104,7 +104,7 @@ class RfDialoguePortrait
     end
 
     def mainUpdate
-        self.state = :closing if !pbMapInterpreterRunning? && PORTRAITS_AUTO_CLOSE_ON_EVENT_END
+        self.state = :closing if !pbMapInterpreterRunning? && RfSettings::PORTRAITS_AUTO_CLOSE_ON_EVENT_END
         # lip flaps would go here, however these are currently not implemented
     end
 
