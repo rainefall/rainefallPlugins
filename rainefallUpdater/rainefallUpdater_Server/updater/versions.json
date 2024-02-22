@@ -1,0 +1,10 @@
+{
+	"latest" : "1.0.0",
+	"manifests" : [
+		{
+			"version" : "1.0.0",
+			"patch_notes" : "url-link-to-image-or-text-file-containing-patch-notes",
+			"manifest" : []
+		}
+	]
+}
