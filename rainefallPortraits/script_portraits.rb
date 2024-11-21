@@ -42,6 +42,7 @@ class RfDialoguePortrait
         @sprite.oy = @sprite.bitmap.height
         @sprite.x = align > 0 ? Graphics.width + 128 : -128
         @sprite.y = Graphics.height
+        @sprite.z = 99999
         @sprite.opacity = 0
         if RfSettings::OUTLINE
             @outline = @sprite.create_outline_sprite
