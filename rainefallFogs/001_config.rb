@@ -1,5 +1,5 @@
 module RfSettings
-  OVERLAY_ADDITIVE_MAPS = [19]
+  OVERLAY_ADDITIVE_MAPS = []
 
   # accessibility features
   ADD_FOGS_TO_SETTINGS = true

@@ -29,7 +29,7 @@ class Spriteset_Map
     @overlay.zoom_x = 2
     @overlay.zoom_y = 2
     @overlay.z = 2500
-    @overlay.opacity = $PokemonSystem.disable_fogs.zero? ? 255 : RfSettings::SETTINGS_MAP_OVERLAY_OPACITY
+    @overlay.opacity = $PokemonSystem.disable_fogs&.zero? ? 255 : RfSettings::SETTINGS_MAP_OVERLAY_OPACITY
     @overlay.blend_type = (RfSettings::OVERLAY_ADDITIVE_MAPS.include? map.map_id) ? 1 : 0
     @overlay.bitmap = get_overlay_bitmap
     _init_map_overlays(map)
@@ -74,11 +74,11 @@ class Spriteset_Global
     @fog = AnimatedPlane.new(Spriteset_Map.viewport)
     @fog.opacity = 64
     @fog.z = 3000
-    @fog.visible = $PokemonSystem.disable_fogs.zero? if RfSettings::SETTINGS_AFFECT_FOGS
+    @fog.visible = $PokemonSystem.disable_fogs&.zero? if RfSettings::SETTINGS_AFFECT_FOGS
 
     @overlay = Sprite.new(Spriteset_Map.viewport)
     @overlay.z = 3500
-    @overlay.visible = $PokemonSystem.disable_fogs.zero? if RfSettings::SETTINGS_AFFECT_GLOBAL_OVERLAY
+    @overlay.visible = $PokemonSystem.disable_fogs&.zero? if RfSettings::SETTINGS_AFFECT_GLOBAL_OVERLAY
     _init_map_overlays
   end
 
@@ -136,81 +136,85 @@ module GameData
       @overlay_name = hash[:overlay_name]
     end
 
-    alias __property_from_string_map_overlays property_from_string
-    def property_from_string(str)
-      return @overlay_name if str == "OverlayName"
-      return __property_from_string_map_overlays(str)
+    if Essentials::VERSION < "21"
+      alias __property_from_string_map_overlays property_from_string
+      def property_from_string(str)
+        return @overlay_name if str == "OverlayName"
+        return __property_from_string_map_overlays(str)
+      end
     end
   end
 end
 
-module Compiler
-  #=============================================================================
-  # Compile map metadata
-  #=============================================================================
-  def compile_map_metadata(path = "PBS/map_metadata.txt")
-    compile_pbs_file_message_start(path)
-    GameData::MapMetadata::DATA.clear
-    map_infos = pbLoadMapInfos
-    map_names = []
-    map_infos.each_key { |id| map_names[id] = map_infos[id].name }
-    # Read from PBS file
-    File.open(path, "rb") { |f|
-      FileLineData.file = path   # For error reporting
-      # Read a whole section's lines at once, then run through this code.
-      # contents is a hash containing all the XXX=YYY lines in that section, where
-      # the keys are the XXX and the values are the YYY (as unprocessed strings).
-      schema = GameData::MapMetadata::SCHEMA
-      idx = 0
-      pbEachFileSectionNumbered(f) { |contents, map_id|
-        echo "." if idx % 50 == 0
-        idx += 1
-        Graphics.update if idx % 250 == 0
-        # Go through schema hash of compilable data and compile this section
-        schema.each_key do |key|
-          FileLineData.setSection(map_id, key, contents[key])   # For error reporting
-          # Skip empty properties
-          next if contents[key].nil?
-          # Compile value for key
-          value = pbGetCsvRecord(contents[key], key, schema[key])
-          value = nil if value.is_a?(Array) && value.length == 0
-          contents[key] = value
-        end
-        # Construct map metadata hash
-        metadata_hash = {
-          :id                   => map_id,
-          :name                 => contents["Name"],
-          :outdoor_map          => contents["Outdoor"],
-          :announce_location    => contents["ShowArea"],
-          :can_bicycle          => contents["Bicycle"],
-          :always_bicycle       => contents["BicycleAlways"],
-          :teleport_destination => contents["HealingSpot"],
-          :weather              => contents["Weather"],
-          :town_map_position    => contents["MapPosition"],
-          :dive_map_id          => contents["DiveMap"],
-          :dark_map             => contents["DarkMap"],
-          :safari_map           => contents["SafariMap"],
-          :snap_edges           => contents["SnapEdges"],
-          :random_dungeon       => contents["Dungeon"],
-          :battle_background    => contents["BattleBack"],
-          :wild_battle_BGM      => contents["WildBattleBGM"],
-          :trainer_battle_BGM   => contents["TrainerBattleBGM"],
-          :wild_victory_BGM     => contents["WildVictoryBGM"],
-          :trainer_victory_BGM  => contents["TrainerVictoryBGM"],
-          :wild_capture_ME      => contents["WildCaptureME"],
-          :town_map_size        => contents["MapSize"],
-          :battle_environment   => contents["Environment"],
-          :flags                => contents["Flags"],
-          :overlay_name         => contents["OverlayName"]
+if Essentials::VERSION < "21"
+  module Compiler
+    #=============================================================================
+    # Compile map metadata
+    #=============================================================================
+    def compile_map_metadata(path = "PBS/map_metadata.txt")
+      compile_pbs_file_message_start(path)
+      GameData::MapMetadata::DATA.clear
+      map_infos = pbLoadMapInfos
+      map_names = []
+      map_infos.each_key { |id| map_names[id] = map_infos[id].name }
+      # Read from PBS file
+      File.open(path, "rb") { |f|
+        FileLineData.file = path   # For error reporting
+        # Read a whole section's lines at once, then run through this code.
+        # contents is a hash containing all the XXX=YYY lines in that section, where
+        # the keys are the XXX and the values are the YYY (as unprocessed strings).
+        schema = GameData::MapMetadata::SCHEMA
+        idx = 0
+        pbEachFileSectionNumbered(f) { |contents, map_id|
+          echo "." if idx % 50 == 0
+          idx += 1
+          Graphics.update if idx % 250 == 0
+          # Go through schema hash of compilable data and compile this section
+          schema.each_key do |key|
+            FileLineData.setSection(map_id, key, contents[key])   # For error reporting
+            # Skip empty properties
+            next if contents[key].nil?
+            # Compile value for key
+            value = pbGetCsvRecord(contents[key], key, schema[key])
+            value = nil if value.is_a?(Array) && value.length == 0
+            contents[key] = value
+          end
+          # Construct map metadata hash
+          metadata_hash = {
+            :id                   => map_id,
+            :name                 => contents["Name"],
+            :outdoor_map          => contents["Outdoor"],
+            :announce_location    => contents["ShowArea"],
+            :can_bicycle          => contents["Bicycle"],
+            :always_bicycle       => contents["BicycleAlways"],
+            :teleport_destination => contents["HealingSpot"],
+            :weather              => contents["Weather"],
+            :town_map_position    => contents["MapPosition"],
+            :dive_map_id          => contents["DiveMap"],
+            :dark_map             => contents["DarkMap"],
+            :safari_map           => contents["SafariMap"],
+            :snap_edges           => contents["SnapEdges"],
+            :random_dungeon       => contents["Dungeon"],
+            :battle_background    => contents["BattleBack"],
+            :wild_battle_BGM      => contents["WildBattleBGM"],
+            :trainer_battle_BGM   => contents["TrainerBattleBGM"],
+            :wild_victory_BGM     => contents["WildVictoryBGM"],
+            :trainer_victory_BGM  => contents["TrainerVictoryBGM"],
+            :wild_capture_ME      => contents["WildCaptureME"],
+            :town_map_size        => contents["MapSize"],
+            :battle_environment   => contents["Environment"],
+            :flags                => contents["Flags"],
+            :overlay_name         => contents["OverlayName"]
+          }
+          # Add map metadata's data to records
+          GameData::MapMetadata.register(metadata_hash)
+          map_names[map_id] = metadata_hash[:name] if !nil_or_empty?(metadata_hash[:name])
         }
-        # Add map metadata's data to records
-        GameData::MapMetadata.register(metadata_hash)
-        map_names[map_id] = metadata_hash[:name] if !nil_or_empty?(metadata_hash[:name])
       }
-    }
-    # Save all data
-    GameData::MapMetadata.save
-    MessageTypes.setMessages(MessageTypes::MapNames, map_names)
-    process_pbs_file_message_end
+      # Save all data
+      GameData::MapMetadata.save
+      MessageTypes.setMessages(MessageTypes::MapNames, map_names)
+      process_pbs_file_message_end
+    end
   end
 end
