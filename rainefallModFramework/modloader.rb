@@ -2,6 +2,8 @@ module ModLoader
     @@mods = []
 
     def self.load_mods
+        return if !Dir.exist?("Mods")
+        
         # unmount the original path cache so that mod assets take priority
         BASE_PATHS.each { |path| System.unmount(path) if FileTest.exist?(path) || FileTest.directory?(path) }
 
