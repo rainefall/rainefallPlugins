@@ -29,8 +29,8 @@ class Spriteset_Map
     @overlay.zoom_x = 2
     @overlay.zoom_y = 2
     @overlay.z = 2500
-    @overlay.opacity = $PokemonSystem.disable_fogs&.zero? ? 255 : RfSettings::SETTINGS_MAP_OVERLAY_OPACITY
-    @overlay.blend_type = (RfSettings::OVERLAY_ADDITIVE_MAPS.include? map.map_id) ? 1 : 0
+    @overlay.opacity = (!RfSettings::ADD_FOGS_TO_SETTINGS) || $PokemonSystem.disable_fogs&.zero? ? 255 : RfSettings::SETTINGS_MAP_OVERLAY_OPACITY
+    @overlay.blend_type = RfSettings::OVERLAY_BLEND_MODES[map.map_id]
     @overlay.bitmap = get_overlay_bitmap
     _init_map_overlays(map)
     # It would be better to just remove @fog entirely but we can't guarantee Spriteset_Map does not get modified
@@ -69,16 +69,19 @@ class Spriteset_Global
   alias _dispose_map_overlays dispose
 
   attr_reader :fog, :overlay
+  attr_accessor :fog_ox, :fog_oy
 
   def initialize
     @fog = AnimatedPlane.new(Spriteset_Map.viewport)
     @fog.opacity = 64
-    @fog.z = 3000
-    @fog.visible = $PokemonSystem.disable_fogs&.zero? if RfSettings::SETTINGS_AFFECT_FOGS
+    @fog.z = 6000
+    @fog.visible = $PokemonSystem.disable_fogs&.zero? if RfSettings::ADD_FOGS_TO_SETTINGS && RfSettings::SETTINGS_AFFECT_FOGS
+    @fog_ox = 0
+    @fog_oy = 0
 
     @overlay = Sprite.new(Spriteset_Map.viewport)
     @overlay.z = 3500
-    @overlay.visible = $PokemonSystem.disable_fogs&.zero? if RfSettings::SETTINGS_AFFECT_GLOBAL_OVERLAY
+    @overlay.visible = $PokemonSystem.disable_fogs&.zero? if RfSettings::ADD_FOGS_TO_SETTINGS && RfSettings::SETTINGS_AFFECT_GLOBAL_OVERLAY
     _init_map_overlays
   end
 
@@ -92,8 +95,16 @@ class Spriteset_Global
       @fog.set_fog(@fog_name, @fog_hue) if !nil_or_empty?(@fog_name)
       Graphics.frame_reset
     end
-    @fog.ox         = ($game_map.display_x / Game_Map::X_SUBPIXELS).round + $game_map.fog_ox
-    @fog.oy         = ($game_map.display_y / Game_Map::Y_SUBPIXELS).round + $game_map.fog_oy
+    # Update fog position
+    uptime_now = System.uptime
+    @fog_scroll_last_update_timer = uptime_now if !@fog_scroll_last_update_timer
+    scroll_mult = (uptime_now - @fog_scroll_last_update_timer) * 5
+    @fog_ox -= $game_map.fog_sx * scroll_mult
+    @fog_oy -= $game_map.fog_sy * scroll_mult
+    @fog_scroll_last_update_timer = uptime_now
+    # update fog object
+    @fog.ox         = @fog_ox
+    @fog.oy         = @fog_oy
     @fog.zoom_x     = $game_map.fog_zoom / 100.0
     @fog.zoom_y     = $game_map.fog_zoom / 100.0
     @fog.opacity    = $game_map.fog_opacity
@@ -116,12 +127,54 @@ class Spriteset_Global
   end
 end
 
+class Game_Map
+  def display_x=(value)
+    return if @display_x == value
+    # calculate new value of display_x
+    new_display_x = value
+    if metadata&.snap_edges
+      max_x = (self.width - (Graphics.width.to_f / TILE_WIDTH)) * REAL_RES_X
+      new_display_x = [0, [new_display_x, max_x].min].max
+    end
+    # scroll fog
+    if $scene.is_a?(Scene_Map) && $game_map == self
+      delta = new_display_x - @display_x
+      $scene.spritesetGlobal.fog_ox += delta / Game_Map::X_SUBPIXELS * RfSettings::FOG_PARALLAX
+    end
+    # set display_x
+    @display_x = new_display_x
+    $map_factory&.setMapsInRange
+  end
+
+  def display_y=(value)
+    return if @display_y == value
+    # calculate new value of display_y
+    new_display_y = value
+    if metadata&.snap_edges
+      max_y = (self.height - (Graphics.height.to_f / TILE_HEIGHT)) * REAL_RES_Y
+      new_display_y = [0, [new_display_y, max_y].min].max
+    end
+    # scroll fog
+    if $scene.is_a?(Scene_Map) && $game_map == self
+      delta = new_display_y - @display_y
+      $scene.spritesetGlobal.fog_oy += delta / Game_Map::Y_SUBPIXELS * RfSettings::FOG_PARALLAX
+    end
+    # set display_y
+    @display_y = new_display_y
+    $map_factory&.setMapsInRange
+  end
+end
+
 # Add global overlays to map metadata
 module GameData
   class MapMetadata
     attr_reader :overlay_name
 
+if Essentials::VERSION < "21"
     SCHEMA["OverlayName"] = [23, "s"]
+else
+    SCHEMA["OverlayName"] = [:overlay_name, "s"]
+end
 
     class << self; alias __get_original_editor_properties editor_properties; end
     def self.editor_properties
