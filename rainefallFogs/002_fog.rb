@@ -1,0 +1,3 @@
+class FogPlane < Plane
+  
+end

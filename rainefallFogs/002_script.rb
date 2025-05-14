@@ -1,4 +1,4 @@
-# =============================================================================
+ # =============================================================================
 #   Map Overlays are per map and do not repeat
 #   They are intended for use in place of fogs for lighting effects
 # =============================================================================
@@ -69,6 +69,7 @@ class Spriteset_Global
   alias _dispose_map_overlays dispose
 
   attr_reader :fog, :overlay
+  attr_reader :fog_name
   attr_accessor :fog_ox, :fog_oy
 
   def initialize
@@ -78,6 +79,19 @@ class Spriteset_Global
     @fog.visible = $PokemonSystem.disable_fogs&.zero? if RfSettings::ADD_FOGS_TO_SETTINGS && RfSettings::SETTINGS_AFFECT_FOGS
     @fog_ox = 0
     @fog_oy = 0
+
+    @fog_settings = {
+      current: {
+        name: nil,
+        sx: 0,
+        sy: 0,
+        zoom_x: 1.0,
+        zoom_y: 1.0,
+        opacity: 0,
+        blend_type:
+      },
+      last: {}
+    }
 
     @overlay = Sprite.new(Spriteset_Map.viewport)
     @overlay.z = 3500
@@ -95,22 +109,6 @@ class Spriteset_Global
       @fog.set_fog(@fog_name, @fog_hue) if !nil_or_empty?(@fog_name)
       Graphics.frame_reset
     end
-    # Update fog position
-    uptime_now = System.uptime
-    @fog_scroll_last_update_timer = uptime_now if !@fog_scroll_last_update_timer
-    scroll_mult = (uptime_now - @fog_scroll_last_update_timer) * 5
-    @fog_ox -= $game_map.fog_sx * scroll_mult
-    @fog_oy -= $game_map.fog_sy * scroll_mult
-    @fog_scroll_last_update_timer = uptime_now
-    # update fog object
-    @fog.ox         = @fog_ox
-    @fog.oy         = @fog_oy
-    @fog.zoom_x     = $game_map.fog_zoom / 100.0
-    @fog.zoom_y     = $game_map.fog_zoom / 100.0
-    @fog.opacity    = $game_map.fog_opacity
-    @fog.blend_type = $game_map.fog_blend_type
-    @fog.tone       = $game_map.fog_tone
-    @fog.update
     # Overlays
     if @overlay_name != $game_map.metadata&.overlay_name
       @overlay_name = $game_map.metadata.overlay_name
@@ -120,12 +118,34 @@ class Spriteset_Global
     end
   end
 
+  def update_fog(fog)
+    # Update fog position
+    uptime_now = System.uptime
+    @fog_scroll_last_update_timer = uptime_now if !@fog_scroll_last_update_timer
+    scroll_mult = (uptime_now - @fog_scroll_last_update_timer) * 5
+    @fog_ox -= $game_map.fog_sx * scroll_mult
+    @fog_oy -= $game_map.fog_sy * scroll_mult
+    @fog_scroll_last_update_timer = uptime_now
+    # update fog object
+    fog.ox         = @fog_ox
+    fog.oy         = @fog_oy
+    fog.zoom_x     = $game_map.fog_zoom / 100.0
+    fog.zoom_y     = $game_map.fog_zoom / 100.0
+    fog.opacity    = $game_map.fog_opacity
+    fog.blend_type = $game_map.fog_blend_type
+    fog.tone       = $game_map.fog_tone
+    fog.update
+  end
+
   def dispose
     @fog.dispose
     @overlay.dispose
     _dispose_map_overlays
   end
 end
+
+EventHandlers.add(:on_leave_map, :fogs_transition, proc { |new_map_id, new_map|
+})
 
 class Game_Map
   def display_x=(value)
